@@ -27,6 +27,7 @@
 #include "core/hle/service/ns/application_manager_interface.h"
 #include "core/hle/service/ns/service_getter_interface.h"
 #include "core/hle/service/sm/sm.h"
+#include "core/loader/loader.h"
 
 namespace Service::AM {
 
@@ -118,9 +119,8 @@ IApplicationFunctions::IApplicationFunctions(Core::System& system_, std::shared_
         {220, nullptr, "Unknown220"}, // [20.0.0+]
         {300, nullptr, "CreateMovieWriter"}, // [19.0.0+]
         {310, nullptr, "Unknown310"}, // [20.0.0+]
-        {320, D<&IApplicationFunctions::GetScreenShotAndContinuousRecordingInitiallyEnabled>,
-         "GetScreenShotAndContinuousRecordingInitiallyEnabled"},
-        {321, D<&IApplicationFunctions::Unknown321>, "Unknown321"},
+        {320, D<&IApplicationFunctions::Unknown320>, "Unknown320"}, // [20.0.0+]
+        {321, D<&IApplicationFunctions::Unknown321>, "Unknown321"}, // Switch 2
         {330, D<&IApplicationFunctions::Unknown330>, "Unknown330"}, // [20.0.0+]
         {500, nullptr, "StartContinuousRecordingFlushForDebug"},
         {1000, nullptr, "CreateMovieMaker"},
@@ -222,6 +222,10 @@ Result IApplicationFunctions::GetDisplayVersion(Out<DisplayVersion> out_display_
     const auto res = GetApplicationMetadata(system, m_applet->program_id);
     if (res.first != nullptr) {
         const auto& version = res.first->GetVersionString();
+        std::memcpy(out_display_version->string.data(), version.data(),
+                    (std::min)(version.size(), out_display_version->string.size()));
+    } else if (std::string version;
+               system.GetAppLoader().ReadDisplayVersion(version) == Loader::ResultStatus::Success) {
         std::memcpy(out_display_version->string.data(), version.data(),
                     (std::min)(version.size(), out_display_version->string.size()));
     } else {
@@ -354,12 +358,11 @@ Result IApplicationFunctions::GetPseudoDeviceId(Out<Common::UUID> out_pseudo_dev
     // This should be hashed with the device specific hash
     // for now this will do
     const auto res = FileSys::PatchManager::GetMetadataFromBaseOrUpdate(system, m_applet->program_id);
-    // Titles started from extracted folders have no control data; the ID is still per-application,
-    // so derive it from the program ID in place of the NACP seed.
-    const u64 seed = res.first != nullptr ? static_cast<u64>(res.first->raw.seed_for_pseudo_device_id)
-                                          : m_applet->program_id;
     std::array<u8, EVP_MAX_MD_SIZE> hash;
     unsigned int hash_len = 0;
+    // Loose ExeFS boots have no control.nacp; seed from the program id instead of failing.
+    auto const seed = res.first != nullptr ? res.first->raw.seed_for_pseudo_device_id
+                                           : m_applet->program_id;
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
     auto const algorithm = EVP_sha1();
     EVP_DigestInit_ex(ctx, algorithm, nullptr);
@@ -548,21 +551,15 @@ Result IApplicationFunctions::GetUnknownEvent210(
     R_SUCCEED();
 }
 
-Result IApplicationFunctions::GetScreenShotAndContinuousRecordingInitiallyEnabled(
-    Out<bool> out_screenshot_enabled, Out<bool> out_recording_enabled) {
-    std::scoped_lock lk{m_applet->lock};
-    *out_screenshot_enabled = m_applet->screenshot_permission != ScreenshotPermission::Disable;
-    *out_recording_enabled = m_applet->game_play_recording_supported &&
-                             m_applet->game_play_recording_state == GamePlayRecordingState::Enabled;
-    LOG_DEBUG(Service_AM, "called, screenshot={}, recording={}", *out_screenshot_enabled,
-              *out_recording_enabled);
+Result IApplicationFunctions::Unknown320() {
+    // Called by Switch 2 titles during nn::oe::Initialize; arguments unknown.
+    LOG_WARNING(Service_AM, "(STUBBED) called");
     R_SUCCEED();
 }
 
-Result IApplicationFunctions::Unknown321(Out<bool> out_enabled) {
-    // SDK 23.0 uses this initial bool for VI buffer permission bit 4 and RTC sharing audio.
-    *out_enabled = false;
-    LOG_DEBUG(Service_AM, "called, enabled={}", *out_enabled);
+Result IApplicationFunctions::Unknown321() {
+    // Called by Switch 2 titles right after 320; arguments unknown.
+    LOG_WARNING(Service_AM, "(STUBBED) called");
     R_SUCCEED();
 }
 

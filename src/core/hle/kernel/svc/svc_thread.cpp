@@ -36,6 +36,18 @@ constexpr u64 FoldExtraCoreMask(u64 mask) {
     return (mask & low) | ((mask >> Core::Hardware::NUM_CPU_CORES) & low);
 }
 
+// Switch 2 hardware has eight cores. Six are emulated (the most an application is given), so
+// fold any id past them back onto the low cores, both in core ids and in affinity masks.
+constexpr int32_t FoldExtraCoreId(int32_t core_id) {
+    constexpr auto num_cores = static_cast<int32_t>(Core::Hardware::NUM_CPU_CORES);
+    return core_id >= num_cores && core_id < 2 * num_cores ? core_id - num_cores : core_id;
+}
+
+constexpr u64 FoldExtraCoreMask(u64 mask) {
+    constexpr u64 low = (1ULL << Core::Hardware::NUM_CPU_CORES) - 1;
+    return (mask & low) | ((mask >> Core::Hardware::NUM_CPU_CORES) & low);
+}
+
 } // Anonymous namespace
 
 /// Creates a new thread
