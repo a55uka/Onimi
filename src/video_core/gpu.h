@@ -167,6 +167,9 @@ public:
     /// Runs an action on the GPU thread between command lists (returns its sync fence).
     u64 RunOnGpuThread(std::function<void()>&& action);
 
+    /// Runs an action on the GPU thread queued behind previously submitted work (mkw GSV shim).
+    void RunInOrder(std::function<void()>&& func);
+
     /// Obtains current flush request fence id.
     [[nodiscard]] u64 CurrentSyncRequestFence() const;
 

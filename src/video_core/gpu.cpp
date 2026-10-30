@@ -411,6 +411,12 @@ u64 GPU::RunOnGpuThread(std::function<void()>&& action) {
     return impl->RequestSyncOperation(std::move(action));
 }
 
+void GPU::RunInOrder(std::function<void()>&& func) {
+    // Shim for the mkw GSV service: run the action as a GPU-thread sync operation, so it lands
+    // behind previously submitted work (mirroring Takoroka's gpu_split ordering semantics).
+    impl->RequestSyncOperation(std::move(func));
+}
+
 u64 GPU::CurrentSyncRequestFence() const {
     return impl->CurrentSyncRequestFence();
 }
